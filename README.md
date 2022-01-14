@@ -46,7 +46,7 @@ qiime demux summarize --i-data /projects/b1052/mckenna/wssc/qiime/dec21_trimmed.
 --o-visualization /projects/b1052/mckenna/wssc/qiime/dec21_trimmed_readquality.qzv
 ```
 
-5) [dada2.sh]()
+5) [dada2.sh](https://github.com/mckfarm/wssc/blob/main/scripts/dada2.sh)
 - denoise and trim
 - trimming is based on read quality statistics from the previous step - keep sequences with average read quality of >30
 - this command creates three files: dada2 quality filtering table (stats), data table of read info that can be coupled to metadata (table), and a list of amplicon sequence variants that will be used for blast or other commands (rep_seqs)
@@ -80,7 +80,7 @@ qiime phylogeny align-to-tree-mafft-fasttree \
 --o-rooted-tree /projects/b1052/mckenna/wssc/qiime/rooted_tree.qza
 ```
 
-8) [taxa.sh]()
+8) [taxa.sh](https://github.com/mckfarm/wssc/blob/main/scripts/taxa.sh)
 - assigns taxa from Midas classifier
 - also produces output qzv file for viewing
 
