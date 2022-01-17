@@ -2,19 +2,13 @@
 Analysis scripts for WSSC collaboration - 16s rRNA sequence analysis
 
 ## Programs and computing resources:  
-- 16s rRNA amplicon sequence analysis using QIIME2 performed on Northwestern Quest computing cluster
+- 16s rRNA amplicon sequence analysis using QIIME2 2021.11 performed on Northwestern Quest computing cluster
 - Data analysis using R locally
 
 ## QIIME2 workflow:  
 1) create manifest file
 - created in Excel and saved to manifest_dec21.csv
 
-2.0) start an interactive job in Quest
-
-```
-srun --account=b1042 --time=01:00:00 --partition=genomicsguest --mem=1G --pty bash -l
-module load qiime2/2021.11
-```
 2) import paired end reads - these will be output as demultiplexed since they are imported with the manifest file
 
 ```
@@ -69,7 +63,7 @@ qiime metadata tabulate --m-input-file /projects/b1052/mckenna/wssc/qiime/stats_
 --o-visualization /projects/b1052/mckenna/wssc/qiime/stats_dada2.qzv
 ```
 
-7) phylogenetic tree with mafft
+7) create phylogenetic tree with mafft
 
 ```
 qiime phylogeny align-to-tree-mafft-fasttree \
@@ -80,11 +74,11 @@ qiime phylogeny align-to-tree-mafft-fasttree \
 --o-rooted-tree /projects/b1052/mckenna/wssc/qiime/rooted_tree.qza
 ```
 
-8) [taxa.sh](https://github.com/mckfarm/wssc/blob/main/scripts/taxa.sh)
-- assigns taxa from Midas classifier
+8) assign taxonomy with [taxa.sh](https://github.com/mckfarm/wssc/blob/main/scripts/taxa.sh)
+- assigns taxa from Midas and Silva classifers
 - also produces output qzv file for viewing
 
-9) alpha rarefaction curves
+9) make alpha rarefaction curves
 - measure of how diversity changes with sequencing depth
 
 ```
@@ -95,8 +89,9 @@ qiime diversity alpha-rarefaction \
 --p-max-depth 11000
 ```
 
-10) rarefaction
+10) rarefy samples
 - picking a depth of 5000 based on rough estimate of plateau in faith_pd rarefaction curve
+- rarefaction is important for equally comparing sequence data from different sampling dates and DNA extractions
 
 ```
 qiime diversity core-metrics-phylogenetic \
@@ -107,5 +102,6 @@ qiime diversity core-metrics-phylogenetic \
 --output-dir /projects/b1052/mckenna/wssc/qiime/core-metrics-results-5000
 ```
 
-13) [analysis.R](https://github.com/mckfarm/s2ebpr_16s/blob/main/analysis.R)
+# Data analysis
+[analysis.R](https://github.com/mckfarm/s2ebpr_16s/blob/main/analysis.R)
 - Data analysis performed in R with phyloseq and other R functions

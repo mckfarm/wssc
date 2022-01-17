@@ -49,8 +49,8 @@ rel_nit <- subset_taxa(rel,Genus=="Nitrotoga" |
                            Genus=="Nitrobacter" | 
                            Genus=="Nitrosomonas" | 
                            Genus=="Nitrosospira")
-rel_phos <- subset_taxa(rel,Genus=="Candidatus_Accumulibacter" | 
-                            Genus=="Candidatus_Competibacter" | 
+rel_phos <- subset_taxa(rel,Genus=="Ca_Accumulibacter" | 
+                            Genus=="Ca_Competibacter" | 
                             Genus=="Tetrasphaera")
 
 rel_nit <- tax_glom(rel_nit,"Genus")
@@ -74,7 +74,6 @@ ggplot(data=rel_nit_df,mapping=aes(x=date,y=Abundance,fill=Genus)) +
   facet_grid(test~.) + 
   geom_bar(stat="identity") +   
   theme_bw() + 
-  ylim(0,7) + 
   scale_fill_manual(values=met.brewer("Isfahan2", 2)) + 
   theme(axis.text.x = element_text(angle = 0)) +
   scale_x_date(date_labels="%m-%y") +
@@ -86,11 +85,10 @@ ggsave("relative_ab_nit.tiff",width=2500,height=1500,unit="px")
 
 # PAOs/GAOs
 ggplot(data=rel_phos_df,mapping=aes(x=date,y=Abundance,
-  fill=factor(Genus,levels=c("Candidatus_Accumulibacter","Tetrasphaera","Candidatus_Competibacter")))) + 
+  fill=factor(Genus,levels=c("Ca_Accumulibacter","Tetrasphaera","Ca_Competibacter")))) + 
   facet_grid(test~.) + 
   geom_bar(stat="identity") + 
   theme_bw() + 
-  ylim(0,7) + 
   scale_fill_manual(values=met.brewer("Lakota", 3)) + 
   theme(axis.text.x = element_text(angle = 0)) +
   scale_x_date(date_labels="%m-%y") +
