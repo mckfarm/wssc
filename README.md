@@ -7,7 +7,7 @@ Analysis scripts for WSSC collaboration - 16s rRNA sequence analysis
 
 ## QIIME2 workflow:  
 1) create manifest file
-- created in Excel and saved to manifest_dec21.csv
+- created in Excel and saved to dec21_manifest.csv
 
 2) import paired end reads - these will be output as demultiplexed since they are imported with the manifest file
 
