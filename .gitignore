@@ -1,2 +1,4 @@
 # directories
-deliverables/
+
+# file types
+*.Rhistory

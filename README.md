@@ -102,6 +102,21 @@ qiime diversity core-metrics-phylogenetic \
 --output-dir /projects/b1052/mckenna/wssc/qiime/core-metrics-results-5000
 ```
 
+11) Comparing classifier outputs - this actually didnt work because the classifiers use different labels for kingdom, keeping for reference
+
+```
+qiime feature-table relative-frequency \
+--i-table /projects/b1052/mckenna/wssc/qiime/table_dada2.qza \
+--o-relative-frequency-table /projects/b1052/mckenna/wssc/qiime/relative_table_dada2.qza
+
+qiime quality-control evaluate-taxonomy \
+--i-expected-taxa /projects/b1052/mckenna/wssc/qiime/taxonomy_silva.qza \
+--i-observed-taxa /projects/b1052/mckenna/wssc/qiime/taxonomy_midas.qza \
+--i-feature-table /projects/b1052/mckenna/wssc/qiime/relative_table_dada2.qza \
+--p-depth 6 \
+--o-visualization /projects/b1052/mckenna/wssc/qiime/taxa_compare.qzv
+```
+
 # Data analysis
 [analysis.R](https://github.com/mckfarm/s2ebpr_16s/blob/main/analysis.R)
 - Data analysis performed in R with phyloseq and other R functions
