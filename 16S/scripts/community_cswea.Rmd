@@ -1,0 +1,208 @@
+---
+title: "community_cswea"
+output: 
+  html_document
+    number_sections: TRUE
+    code_folding: hide
+    toc: true
+    toc_float: true
+
+---
+
+# Set up
+```{r setup, include=FALSE}
+
+library(tidyverse)
+library(ggplot2)
+library(MetBrewer)
+library(lubridate)
+library(reshape2)
+library(zoo)
+library(cowplot)
+library(readxl)
+```
+
+
+# Data read in
+```{r read in}
+setwd("~/Github/wssc")
+all_tax_path <- "./16S/dec21/results_midas/all_tax_table.csv"
+pao_gao_path <- "./16S/scripts/pao_gao_ratios.csv"
+data_path <- "./performance/data/220510_performance.xlsx"
+
+# data read in and initializing ----------
+all_tax <- read_csv(all_tax_path)
+pao_gao_ratios <- read_csv(pao_gao_path)
+
+air <- read_excel(data_path,sheet="airflow")
+se1 <- read_excel(data_path,sheet="se_1")
+se2 <- read_excel(data_path,sheet="se_2")
+se3 <- read_excel(data_path,sheet="se_3")
+se4 <- read_excel(data_path,sheet="se_4")
+
+se1$train <- "test"
+se2$train <- "se2"
+se3$train <- "se3"
+se4$train <- "se4"
+
+
+```
+
+# Cleaning
+```{r cleaning and subsetting, include=FALSE}
+# performance data ---------
+# subset to dates of interest - 6/30/21 to 11/23/21
+se_test <- se1 %>% filter(date >= "2021-06-30" & date <= "2021-11-23")
+se_control_all <- bind_rows(se2,se3,se4) %>%
+  filter(date >= "2021-06-30" & date <= "2021-11-23")
+
+# mark period before and after pilot start
+air <- air %>%
+  filter(date >= "2021-06-30" & date <= "2021-11-23")
+
+air$AT1_ave <- rollapply(air$AT1,7,mean,na.rm=TRUE,partial = TRUE)
+air$AT2_ave <- rollapply(air$AT2,7,mean,na.rm=TRUE,partial = TRUE)
+air_long <- melt(air,id.vars=c("date","period"))
+air_long$date <- as_date(air_long$date)
+
+
+se_control <- se_control_all %>%
+  group_by(date) %>%
+  summarize(TP=mean(TP),
+            NH4=mean(NH4),
+            NOx=mean(NOx))
+
+se_control$train <- "control"
+
+se_all <- bind_rows(se_test,se_control)
+
+se_all_long <- melt(se_all,id.vars=c("date","train"))
+se_all_long$date <- ymd(se_all_long$date)
+
+# community data ---------
+all_tax$date <- mdy(all_tax$date)
+
+all_tax <- all_tax %>%
+  select(-c(OTU,Sample,battery,...1)) %>%
+  mutate(test=replace(test, test=="AT1","test")) %>%
+  mutate(test=replace(test, test=="AT2/AT3","control"))
+
+colnames(all_tax) <- c("abundance","battery","date","kingdom","phylum","class","order","family","genus","species")
+
+
+pao_gao <- all_tax %>%
+  subset(genus=="Ca_Accumulibacter" |
+           genus=="Tetrasphaera" |
+           genus=="Ca_Competibacter") %>%
+  select(c(date,abundance,battery,genus))
+
+pao_gao <- pao_gao %>% group_by(across(c(genus,date,battery))) %>%
+  summarize(total_ab = sum(abundance))
+
+# write_csv(pao_gao,"pao_gao.csv") # performed ratio calculations manually in excel then reimported
+
+ratios_long <- melt(pao_gao_ratios,id.vars=c("date","battery"))
+ratios_long$date <- mdy(ratios_long$date)
+
+
+functional <- all_tax %>%
+  subset(genus=="Ca_Accumulibacter" |
+           genus=="Tetrasphaera" |
+           genus=="Ca_Competibacter" |
+           genus=="Nitrospira" |
+           genus=="Nitrosomonas"|
+           genus=="Nitrosospira" |
+           genus=="Nitrobacter" |
+           genus=="Nitrotoga") %>%
+  select(c(date,abundance,battery,genus))
+
+functional <- functional %>% group_by(across(c(genus,date,battery))) %>%
+  summarize(total_ab = sum(abundance))
+functional$genus <- factor(functional$genus,levels=c("Ca_Accumulibacter","Tetrasphaera","Ca_Competibacter","Nitrosomonas","Nitrospira"))
+
+
+
+```
+
+
+
+# Analysis
+## Plotting
+```{r plotting PAO GAO ratios}
+tet_ac <- ggplot(data=ratios_long,aes(x=date,y=value,color=battery,shape=battery)) +
+  geom_point(data=subset(ratios_long,variable=="tet_ac")) +
+  theme_classic() +
+  ylim(0,60) + 
+  labs(y="",x="") +
+  scale_color_manual(values=c("#8282AA","#B36560")) +
+  scale_x_date(date_labels="%Y-%m") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        legend.position="none")
+
+tet_comp <- ggplot(data=ratios_long,aes(x=date,y=value,color=battery,shape=battery)) +
+  geom_point(data=subset(ratios_long,variable=="tet_comp")) +
+  theme_classic() +
+  ylim(0,6) + 
+  labs(y="",x="Date") +
+  scale_color_manual(values=c("#8282AA","#B36560")) +
+  scale_x_date(date_labels="%Y-%m") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        legend.position="none")
+
+ac_comp <- ggplot(data=ratios_long,aes(x=date,y=value,color=battery,shape=battery)) +
+  geom_point(data=subset(ratios_long,variable=="ac_comp")) +
+  theme_classic() +
+  labs(y="",x="Date") +
+  ylim(0,0.6) +
+  scale_color_manual(values=c("#8282AA","#B36560")) +
+  scale_x_date(date_labels="%Y-%m") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        legend.position="none")
+
+
+plot_grid(tet_ac,tet_comp,ncol=1,nrow=2)
+ggsave("PAO_comparison.tiff",width=5,height=8,units="in",dpi=300,scale=0.42)
+```
+
+
+
+```{r plotting PAO and GAO in test battery}
+plot_functional <- ggplot(data=functional,aes(x=date,y=total_ab,color=genus)) +
+  geom_point(data=subset(functional,battery=="test"),alpha=0.8,size=2) +
+  geom_line(data=subset(functional,battery=="test"),alpha=0.8) +
+  theme_classic() +
+  ylim(0,8) +
+  labs(y="",x="") +
+  scale_x_date(date_labels="%Y-%m") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  scale_color_manual(values=met.brewer("Hokusai1",5))
+
+leg <- get_legend(plot_functional)
+
+plot_functional <- plot_functional + theme(legend.position="none")
+plot_functional
+ggsave("function_test.tiff",width=7.5,height=6,units="in",dpi=300,scale=0.42)
+
+
+plot_air <- ggplot(data=air_long,aes(x=date,y=value,color=variable)) +
+  geom_point(data=subset(air_long,variable=="AT1"),alpha=0.6) +
+  geom_line(data=subset(air_long,variable=="AT1_ave"),size=1.5) +
+  theme_classic() +
+  ylim(1000,4000) +
+  labs(title="",x="Date",y="") +
+  scale_x_date(date_labels="%Y-%m") +
+  scale_color_manual(values=met.brewer("Cassatt1",4)) +
+  theme(axis.text.x = element_text(angle=45,vjust=1,hjust=1),
+        legend.position="none")
+plot_air
+ggsave("air_test.tiff",width=7.5,height=6,units="in",dpi=300,scale=0.42)
+
+
+plot_grid(plot_functional,plot_air,align="hv",axis="tblr",ncol=1)
+ggsave("air_group.tiff",width=7,height=10,units="in",dpi=300,scale=0.5)
+# ggdraw(leg)
+# ggsave("legend.tiff",width=7,height=6,units="in",dpi=300)
+
+```
+
+
