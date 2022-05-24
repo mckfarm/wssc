@@ -3,6 +3,7 @@ Analysis scripts for WSSC collaboration - 16s rRNA sequence analysis
 
 ## Programs and computing resources:  
 - 16s rRNA amplicon sequence analysis using QIIME2 2021.11 performed on Northwestern Quest computing cluster
+- Use an interactive job and activate the module in Quest - module load qiime2/2021.11
 - Data analysis using R locally
 
 ## QIIME2 workflow:  
@@ -91,7 +92,7 @@ qiime diversity alpha-rarefaction \
 
 10) rarefy samples
 - picking a depth of 5000 based on rough estimate of plateau in faith_pd rarefaction curve
-- rarefaction is important for equally comparing sequence data from different sampling dates and DNA extractions
+- rarefaction is optional - you randomly select data from your sequences at the same depth for each sample, this is best practice to compare sequencing data from different sampling dates and DNA extractions but you are losing data in the process 
 
 ```
 qiime diversity core-metrics-phylogenetic \
