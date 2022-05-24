@@ -1,5 +1,5 @@
 # WSSC
-Analysis scripts for WSSC collaboration - 16s rRNA sequence analysis
+Analysis workflow for 16s rRNA sequence analysis
 
 ## Programs and computing resources:  
 - 16s rRNA amplicon sequence analysis using QIIME2 2021.11 performed on Northwestern Quest computing cluster
@@ -77,6 +77,7 @@ qiime phylogeny align-to-tree-mafft-fasttree \
 
 8) assign taxonomy with [taxa.sh](https://github.com/mckfarm/wssc/blob/main/16S/scripts/dec21/taxa.sh)
 - assigns taxa from Midas and Silva classifers
+- Midas is a wastewater specific database, Silva is much more broad
 - also produces output qzv file for viewing
 
 9) make alpha rarefaction curves
@@ -92,7 +93,7 @@ qiime diversity alpha-rarefaction \
 
 10) rarefy samples
 - picking a depth of 5000 based on rough estimate of plateau in faith_pd rarefaction curve
-- rarefaction is optional - you randomly select data from your sequences at the same depth for each sample, this is best practice to compare sequencing data from different sampling dates and DNA extractions but you are losing data in the process 
+- rarefaction is optional - you randomly select data from your sequences at the same depth for each sample, this is best practice to compare sequencing data from different sampling dates and DNA extractions but you are losing data in the process
 
 ```
 qiime diversity core-metrics-phylogenetic \
