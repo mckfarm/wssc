@@ -1,0 +1,414 @@
+---
+title: "AEESP Microbiome Analysis"
+output: html_notebook
+---
+
+# Code set up and data read in
+```{r set up}
+library(ggplot2)
+library(tidyverse)
+library(readxl)
+library(cowplot)
+library(lubridate)
+library(MetBrewer)
+library(ggcorrplot)
+library(zoo)
+library(reshape2)
+library(ggdist)
+
+out_path <- file.path("results","figures")
+
+```
+
+# Performance data
+## Read in
+```{r data read in and prep - performance}
+path_performance <- file.path("data", "220510_performance.xlsx")
+
+# air flow
+air <- read_excel(path_performance, sheet="airflow")
+air <- air %>%
+  filter(date >= "2020-03-01")
+air$date <- as_date(air$date)
+
+air_test <- air %>% select(date,AT1) %>% rename(flow=AT1)
+air_control <- air %>% select(date,AT2) %>% rename(flow=AT2)
+
+air_test$train <- "test"
+air_control$train <- "control"
+
+air_test$flow_ave <- rollapply(air_test$flow, 7, mean, na.rm=TRUE, partial = TRUE)
+air_control$flow_ave <- rollapply(air_control$flow, 7, mean, na.rm=TRUE, partial = TRUE)
+
+air_all <- bind_rows(air_control,air_test)
+air_long <- melt(air_all,id.vars=c("date","train"))
+
+rm(air,air_test,air_control)
+
+```
+
+```{r nutrients read in}
+# nutrients
+se1 <- read_excel(path_performance, sheet="se_1")
+se2 <- read_excel(path_performance, sheet="se_2")
+se3 <- read_excel(path_performance, sheet="se_3")
+se4 <- read_excel(path_performance, sheet="se_4")
+inf <- read_excel(path_performance, sheet="inf")
+
+se2$train <- "se2"
+se3$train <- "se3"
+se4$train <- "se4"
+inf$train <- "influent"
+
+se_test <- se1 %>% filter(date >= "2021-03-22") # subset to dates of interest - 3/21/21 to now
+se_control <- bind_rows(se2,se3,se4) %>%
+  filter(date >= "2021-03-22")
+
+se_control <- se_control %>% 
+  group_by(date) %>% 
+  summarise(TP = mean(TP), NH4 = mean(NH4), NOx = mean(NOx))
+
+se_control$TP_ave <- rollapply(se_control$TP, 7, mean, na.rm=TRUE, partial = TRUE)
+se_test$TP_ave <- rollapply(se_test$TP, 7, mean, na.rm=TRUE, partial = TRUE)
+
+se_control$NOx_ave <- rollapply(se_control$NOx, 7, mean, na.rm=TRUE, partial = TRUE)
+se_test$NOx_ave <- rollapply(se_test$NOx, 7, mean, na.rm=TRUE, partial = TRUE)
+
+se_control$train <- "control"
+se_test$train <- "test"
+
+data_all <- bind_rows(se_control, se_test)
+data_all <- bind_rows(data_all,inf)
+
+data_all_long <- melt(data_all,id.vars=c("date","train"))
+data_all_long$date <- as_date(data_all_long$date)
+
+rm(se1,se2,se3,se4,se_control,se_test)
+```
+
+## Figures
+```{r air flow}
+
+# plotting airflow
+ggplot(data=air_long,aes(x=date,y=value,color=train,shape=train)) +
+  geom_rect(data=NULL,
+            aes(xmin=as_date("2020-03-01"),xmax=as_date("2021-03-22"),ymin=-Inf,ymax=Inf),
+            color="lightgrey",fill="lightgrey",alpha=0.9) + 
+  geom_point(data=subset(air_long, variable=="flow" | variable=="flow"),alpha=0.8) +
+  geom_line(data=subset(air_long, variable=="flow_ave" | variable=="flow_ave"),size=1.25,alpha=0.8) +
+  theme_classic() +
+  labs(title="",x="Date",y="Airflow to basin [SCFM]") +
+  scale_x_date(breaks="4 months",date_labels="%Y-%m",limits=c(ymd("2020-02-01"),NA)) +
+  scale_color_manual(values=met.brewer("Thomas",2)) +
+  theme(axis.text.x = element_text(angle=45,vjust=1,hjust=1),
+        legend.position="none") +
+  geom_text(x=ymd("2020-09-15"), y=6200, label="Before pilot",color="black") +
+  geom_text(x=ymd("2021-09-15"), y=6200, label="During pilot",color="black") +
+  ylim(2000,6250)
+ggsave(filename = out_path %>% file.path("airflow.tiff"),width=5,height=3)
+
+```
+
+
+```{r P and N removal performance}
+plot_p <- ggplot(data=data_all_long,aes(x=date,y=value,color=train,shape=train)) +
+  geom_point(data=subset(data_all_long,variable=="TP"),size=0.75,alpha=0.7) +
+  geom_line(data=subset(data_all_long, variable=="TP_ave"),size=1,alpha=0.7) +
+  theme_classic() +
+  labs(y="Total P [mgP/L]",x="") +
+  scale_x_date(breaks="2 months",date_labels="%Y-%m",limits=c(ymd("2021-03-01"),NA)) +
+  scale_color_manual(values=met.brewer("Thomas",2)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        legend.position="none") +
+  ylim(0,0.5)
+
+plot_n <- ggplot(data=data_all_long,aes(x=date,y=value,color=train,shape=train)) +
+  geom_point(data=subset(data_all_long,variable=="NOx"),size=0.75,alpha=0.7) +
+  geom_line(data=subset(data_all_long, variable=="NOx_ave"),size=1,alpha=0.7) +
+  theme_classic() +
+  labs(y="NOx [mgN/L]",x="Date") +
+  scale_x_date(breaks="2 months",date_labels="%Y-%m",limits=c(ymd("2021-03-01"),NA)) +
+  scale_color_manual(values=met.brewer("Thomas",2)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        legend.position="none") +
+  ylim(0,5)
+
+
+plot_p_box <- ggplot(data=subset(data_all_long,variable =="TP"), aes(x=train,y=value,color=train)) +
+  ggdist::stat_halfeye(point_colour = NA, width = .6, .width = 0,justification=-0.3) +
+  geom_boxplot(width = .25, outlier.shape = NA) +
+  geom_point(position = position_jitter(seed = 1, width = 0.1), alpha=0.2, size=0.6) +
+  theme_classic() + 
+  scale_color_manual(values=met.brewer("Thomas",2)) +
+  labs(y="",x="") +
+  theme(legend.position="none") +
+  ylim(0,0.5)
+
+plot_n_box <- ggplot(data=subset(data_all_long,variable =="NOx"), aes(x=train,y=value,color=train)) +
+  ggdist::stat_halfeye(point_colour = NA, width = .6, .width = 0,justification=-0.3) +
+  geom_boxplot(width = .25, outlier.shape = NA) +
+  geom_point(position = position_jitter(seed = 1, width = 0.1), alpha=0.2, size=0.6) +
+  theme_classic() + 
+  scale_color_manual(values=met.brewer("Thomas",2)) +
+  labs(y="",x="") +
+  theme(legend.position="none") +
+  ylim(0,5) 
+
+plot_grid(plot_p,plot_p_box,plot_n,plot_n_box,align="hv",axis="tblr", nrow=2, rel_widths = c(1,0.7))
+
+ggsave(filename = out_path %>% file.path("p_n_eff.tiff"),width=6,height=4,dpi=300)
+
+
+```
+
+
+# Microbiome
+## Read in
+```{r microbiome read in}
+
+path_tax <- file.path("qiime_dec21", "results", "all_tax_table.csv")
+
+taxa_all <- read.csv(path_tax) %>%
+  select(-X) %>%
+  mutate(test=replace(test, test=="AT1","test")) %>%
+  mutate(test=replace(test, test=="AT2/AT3","control")) %>%
+  mutate(date=dmy(date))
+
+function_raw <- taxa_all %>%
+  subset(Genus=="Ca_Accumulibacter" |
+           Genus=="Tetrasphaera" |
+           Genus=="Ca_Competibacter" |
+           Genus=="Nitrospira" |
+           Genus=="Nitrosomonas"|
+           Genus=="Nitrosospira" |
+           Genus=="Nitrobacter" |
+           Genus=="Nitrotoga") %>%
+  select(c(date,Abundance,test,Genus))
+
+
+colnames(function_raw) <- c("date","abundance","train","genus")
+
+functional <- function_raw %>% group_by(across(c(genus,date,train))) %>%
+  summarize(total_ab = sum(abundance)) %>%
+  ungroup()
+
+spread_functional <- spread(functional,key=genus,value=total_ab) 
+
+# all_join <- bind_rows(spread_functional,data_all)
+# all_join <- all_join %>% filter(date >= ymd("2021-03-01"))
+# all_join_long <- melt(all_join,id.vars=c("date","train"))
+
+function_join <- inner_join(spread_functional,data_all,by=c("date","train"))
+function_join <- inner_join(function_join,air_all,by=c("date","train")) %>%
+  select(-c(TP_ave,NOx_ave,)) %>%
+  select(c(date,train,Ca_Accumulibacter,Tetrasphaera,Ca_Competibacter,Nitrosomonas,Nitrospira,TP,NOx,NH4)) # reordering columns
+
+# omitting flow because a test run did not show any correlation between flow and other variables
+
+cor_test <- function_join %>%
+  filter(train=="test") %>%
+  select(-c(date,train,NH4)) %>%
+  cor(.,method="pearson")
+cor_control <- function_join %>%
+  filter(train=="control") %>%
+  select(-c(date,train,NH4)) %>%
+  cor(.,method="pearson")
+
+sig_test <- function_join %>%
+  filter(train=="test") %>%
+  select(-c(date,train,NH4)) %>%
+  cor_pmat(.,method="pearson")
+sig_control <- function_join %>%
+  filter(train=="control") %>%
+  select(-c(date,train,NH4)) %>%
+  cor_pmat(.,method="pearson")
+
+rm(function_raw,spread_functional)
+
+```
+
+
+
+```{r ordination and diversity}
+library(qiime2R)
+library(phyloseq)
+
+physeq <- qza_to_phyloseq(
+  features="qiime_dec21/qiime_files/rarefied_table.qza",
+  tree="qiime_dec21/qiime_files/rooted_tree.qza",
+  taxonomy="qiime_dec21/qiime_files/taxonomy_midas.qza",
+  metadata = "qiime_dec21/qiime_files/dec21_metadata.txt"
+)
+physeq <- subset_taxa(physeq, !Genus=="Mitochondria" & !Genus=="Chloroplast")
+
+rel <- transform_sample_counts(physeq, function(x) x*100/sum(x))
+rel_glom <- tax_glom(rel,taxrank="Genus")
+rel_glom_df <- psmelt(rel_glom)
+
+# top taxa
+topN <- 5
+rel_glom_test <- rel_glom_df %>% filter(test=="AT1")
+rel_glom_control <- rel_glom_df %>% filter(test=="AT2/AT3")
+agg_test <- top_n(aggregate(Abundance~Genus, rel_glom_test, FUN=sum),topN,Abundance)
+agg_control <- top_n(aggregate(Abundance~Genus, rel_glom_control,FUN=sum),topN,Abundance)
+
+rel_glom_test <- rel_glom_test %>%
+  filter(Genus %in% agg_test$Genus)
+rel_glom_control <- rel_glom_control %>%
+  filter(Genus %in% agg_control$Genus)
+rel_glom_control$date <- dmy(rel_glom_control$date)
+rel_glom_test$date <- dmy(rel_glom_test$date)
+
+# ordination
+pcoa_all <- ordinate(physeq,method="PCoA",distance="bray")
+
+# shannon
+shannon <- plot_richness(physeq, x="test", measures=c("Shannon"))
+shannon_df <- as.data.frame(shannon$data)
+shannon_df$date <- dmy(shannon_df$date)
+
+
+
+```
+
+
+## Figures
+```{r shannon plot}
+ggplot(data=shannon_df,aes(x=test, y=value)) + 
+  geom_boxplot() +
+  geom_point(aes(color=date)) +
+  theme_classic() + 
+  scale_color_gradient(trans="date",low="darkblue",high="red") + 
+  labs(color="Date",y="Shannon diversity index",x="") +
+  scale_x_discrete(limits=c("AT2/AT3","AT1"),
+                   labels=c("AT2/AT3"="control","AT1"="test")) +
+  theme(legend.position="none")
+ggsave(filename = out_path %>% file.path("shannon.tiff"),width=3,height=3,dpi=300)
+```
+
+
+```{r ordination plot}
+plot_ordination(physeq,pcoa_all) +
+  geom_point(size=2.5,aes(color=dmy(date),shape=test)) +
+  scale_color_gradient(trans="date",low="darkblue",high="red") +
+  scale_shape_manual(values=c(17,16)) +
+  theme_minimal()
+ggsave(filename = out_path %>% file.path("ordination.tiff"),width=4,height=3,dpi=300)
+
+```
+
+
+
+```{r time series plots}
+
+functional %>%
+  subset(genus=="Ca_Accumulibacter"|genus=="Ca_Competibacter"|
+           genus=="Tetrasphaera") %>%
+  mutate(genus=factor(genus,levels=c("Ca_Accumulibacter",
+                                     "Tetrasphaera","Ca_Competibacter"))) %>%
+  ggplot(., aes(x=date,y=total_ab,color=genus,shape=train)) +
+    geom_line(linetype="dashed",alpha=0.5) +
+    geom_point(size=1.5) +
+    ylim(0,8) +
+    theme_classic() +
+    scale_color_manual(values=met.brewer("Java",3)) +
+    labs(y="Relative Abundance [%]",x="Date") +
+    scale_x_date(breaks="1 months",date_labels="%Y-%m",
+                 limits=c(as_date("2021-06-20"),as_date("2021-12-20"))) +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),legend.position="none")
+ggsave(filename = out_path %>% file.path("pao_gao.tiff"),width=5,height=3.5,dpi=300)
+
+
+
+```
+
+```{r}
+
+
+ggplot(rel_glom_control,aes(x=date,y=Abundance,fill=Genus)) +
+  geom_bar(stat="identity") +
+  theme_classic() +
+    labs(y="",x="Date") +
+    ylim(0,50) +
+    scale_x_date(breaks="1 months",date_labels="%Y-%m") +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+          legend.position="none") +
+    scale_fill_manual(values=c("#C2DFE3","#BF9ACA","#8E4162","#786872","#EDA2C0"))
+ggsave(filename = out_path %>% file.path("top_5_control.tiff"),width=4,height=2.5,dpi=300)
+
+ggplot(rel_glom_test,aes(x=date,y=Abundance,fill=Genus)) +
+  geom_bar(stat="identity") +
+  theme_classic() +
+    labs(y="",x="Date") +
+    ylim(0,50) +
+    scale_x_date(breaks="1 months",date_labels="%Y-%m") +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+          legend.position="none") +
+    scale_fill_manual(values=c("#C2DFE3","#BF9ACA","#B5838D","#8E4162","#EDA2C0"))
+ggsave(filename = out_path %>% file.path("top_5_test.tiff"),width=4,height=2.5,dpi=300)
+
+  
+```
+
+
+# Not used
+```{r figures microbiome correlations}
+
+ggcorrplot(cor_test, p.mat=sig_test, sig.level=0.05,
+           type="upper", lab="true", insig="pch",colors=c("steelblue1","white","coral3")) +
+  theme(axis.text=element_text(color="black")) +
+  ggtitle("Test train")
+
+# ggsave(filename = out_path %>% file.path("cor_test.tiff"),width=5,height=3.75,dpi=300)
+
+ggcorrplot(cor_control, p.mat=sig_control, sig.level=0.05,
+           type="upper", lab="true", insig="blank",colors=c("steelblue1","white","coral3")) +
+  theme(axis.text=element_text(color="black")) +
+  ggtitle("Control train")
+
+# ggsave(filename = out_path %>% file.path("cor_control.tiff"),width=4,height=3,dpi=300)
+
+```
+
+
+
+this is an interesting plot for a paper but I think it's a bit too complex for this poster
+```{r boxplot of PAO and GAO over time}
+plot_points <- functional %>%
+  filter(genus=="Ca_Accumulibacter"|genus=="Ca_Competibacter"|genus=="Tetrasphaera") %>%
+  ggplot(., aes(x=genus,y=total_ab,shape=train)) +
+    geom_point(aes(color=date),position = position_jitterdodge(jitter.width=0.1)) +
+    theme_classic() + 
+    scale_color_gradient(trans="date",low="darkblue",high="red") +
+    theme_half_open() +
+    labs(y="Relative Abundance [%]",x="") +
+    theme(legend.position="none") +
+    scale_x_discrete(limits=c("Ca_Accumulibacter","Tetrasphaera","Ca_Competibacter"),
+                     labels=c("Ca_Accumulibacter"="Accumulibacter",
+                              "Tetrasphaera"="Tetrasphaera",
+                              "Ca_Competibacter"="Competibacter"))
+# ggsave(filename = out_path %>% file.path("phos_box.tiff"),width=5,height=5,dpi=300)
+
+plot_box <- functional %>%
+  filter(genus=="Ca_Accumulibacter"|genus=="Ca_Competibacter"|genus=="Tetrasphaera") %>%
+  ggplot(., aes(x=genus,y=total_ab,color=train)) +
+  geom_boxplot(width = .25, outlier.shape = NA) +
+  theme_half_open() +
+  scale_color_manual(values=met.brewer("Thomas",2)) +
+  labs(y="",x="") +
+  scale_x_discrete(limits=c("Ca_Accumulibacter","Tetrasphaera","Ca_Competibacter"),
+                     labels=c("Ca_Accumulibacter"="Accumulibacter",
+                              "Tetrasphaera"="Tetrasphaera",
+                              "Ca_Competibacter"="Competibacter")) +
+  theme(legend.position="none",axis.text.x=element_blank(),axis.text.y=element_blank())
+
+aligned_plots <- align_plots(plot_points,plot_box, align="hv", axis="tblr")
+
+ggdraw(aligned_plots[[1]]) + draw_plot(aligned_plots[[2]])
+ggsave(filename = out_path %>% file.path("pao_gao_box.tiff"),width=5,height=3.75,dpi=300)
+
+functional %>%
+  group_by(train,genus) %>%
+  summarize(median=median(total_ab))
+
+```
