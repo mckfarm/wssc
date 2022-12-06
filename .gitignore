@@ -37,3 +37,7 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+
+# files
+data/*.xlsx
+data/QIIMEMiDAS_4.8.1.fa

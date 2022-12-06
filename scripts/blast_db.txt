@@ -1,0 +1,22 @@
+Make a blastdb to compare Dechloromonas sequences with known Dechloromonas PAO sequences
+
+module load blast/2.12.0
+
+Phosphorivorans -----
+
+cd /projects/b1052/mckenna/blast_db/dechloro_vans
+makeblastdb -in ref_phosphorivorans.fasta -parse_seqids -dbtype nucl -out vans
+
+blastn -query /projects/p31629/wssc/blast_dechloro/seqs_dechloro.fasta \
+-db vans -task blastn -evalue 1e-10 \
+-out /projects/p31629/wssc/blast_dechloro/blast_vans.txt -outfmt 6
+
+
+Phosphoritropha -----
+
+cd /projects/b1052/mckenna/blast_db/dechloro_troph
+makeblastdb -in ref_phosphoritropha.fasta -parse_seqids -dbtype nucl -out troph
+
+blastn -query /projects/p31629/wssc/blast_dechloro/seqs_dechloro.fasta \
+-db troph -task blastn -evalue 1e-10 \
+-out /projects/p31629/wssc/blast_dechloro/blast_troph.txt -outfmt 6
