@@ -20,3 +20,12 @@ makeblastdb -in ref_phosphoritropha.fasta -parse_seqids -dbtype nucl -out troph
 blastn -query /projects/p31629/wssc/blast_dechloro/seqs_dechloro.fasta \
 -db troph -task blastn -evalue 1e-10 \
 -out /projects/p31629/wssc/blast_dechloro/blast_troph.txt -outfmt 6
+
+Competibacter denitrificans
+
+cd /projects/b1052/mckenna/blast_db/comp_denit
+makeblastdb -in ref_competibacter_denit.fasta -parse_seqids -dbtype nucl -out comp_denit
+
+blastn -query /projects/p31629/wssc/blast_comp/seqs_comp.fasta \
+-db comp_denit -task blastn -evalue 1e-10 \
+-out /projects/p31629/wssc/blast_comp/blast_comp_denit.txt -outfmt 6
